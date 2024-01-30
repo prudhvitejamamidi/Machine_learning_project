@@ -1,0 +1,44 @@
+library(e1071)
+library(stringr)
+library(rpart)
+library(rpart.plot)
+
+
+
+
+mushroom = read.csv(file.choose())
+head(mushroom)
+summary(mushroom)
+##From summary it can be seen that the variable veil.type has only one value and hence cannot contribute to information gain
+mushroom$veil.type = NULL  # remove veil.type 
+mushroom$class = sapply(mushroom$class, function(x){ifelse(x=='e', 'edible', 'poisonous')}) ## Renaming elements of Class to Edible and Poisonous
+
+set.seed(124) # setting the seed so that the results are reproducible
+
+n=nrow(mushroom)
+index=sample(n, .70*n) ##Random sampling indices for splitting into testset and trainset
+trainset=mushroom[index,]
+testset=mushroom[-index,]
+
+
+
+
+tree = rpart(class~., data=trainset, control = rpart.control(cp = 0))  ##Calling the rpart function for constructing the decision tree
+printcp(tree) #To view the summary of the tree created
+
+#From the summary based on the least xerror we can find the optimal CP Value
+tree_testpred= predict(tree, testset, type='class') #Predicting the testest based on the tree built before
+accuracy_preprune=mean(tree_testpred==testset$class) #Accuracy of the model on the testset
+table(tree_testpred, testset$class) # Confusion matrix of the test set and the model predictions
+
+
+rpart.plot(tree,main="Pre Pruned Tree", cex= 0.7) # Plotting the decision tree prior to Pruning
+
+tree_pruned = prune(tree, cp = 0.0021946) # Pruning the tree based on the next best optimal CP value after 0 
+# Compute the accuracy of the pruned tree
+tree$red = predict(tree_pruned, testset, type = "class") #Predicting the testset after Pruning
+accuracy_postprune = mean(tree$red == testset$class)
+
+data.frame(accuracy_preprune,accuracy_postprune) #Comparison of Accuracy before and after Pruning
+
+rpart.plot(tree_pruned,main="After Pruning", cex=0.7) # Plotting the tree after Pruning
